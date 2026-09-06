@@ -1,0 +1,16 @@
+{
+  "_tool_name": "upsert_application_events",
+  "demo_user_id": "demo-user",
+  "events": [
+    {"company":"Acme","role":"Software Engineer Intern","application_id":"ACME-101","status":"APPLIED","status_at":"2026-09-01T01:00:00Z","provider":"gmail","message_id":"gmail-acme-applied","confidence":"HIGH","evidence_summary":"Application receipt confirmed."},
+    {"company":"Acme","role":"Software Engineer Intern","application_id":"ACME-101","status":"ASSESSMENT","status_at":"2026-09-02T03:00:00Z","provider":"gmail","message_id":"gmail-acme-oa","confidence":"HIGH","evidence_summary":"Coding assessment requested."},
+    {"company":"Acme","role":"Software Engineer Intern","application_id":"ACME-101","status":"INTERVIEW","status_at":"2026-09-03T04:00:00Z","provider":"gmail","message_id":"gmail-acme-interview","confidence":"HIGH","evidence_summary":"Technical interview invitation received."},
+    {"company":"Acme","role":"Software Engineer Intern","application_id":"ACME-101","status":"REJECTED","status_at":"2026-09-05T08:00:00Z","provider":"gmail","message_id":"gmail-acme-rejected","confidence":"HIGH","evidence_summary":"Application will not proceed."},
+    {"company":"Globex","role":"Data Analyst Intern","application_id":"GLX-22","status":"APPLIED","status_at":"2026-09-01T02:00:00Z","provider":"outlook","message_id":"outlook-globex-applied","confidence":"HIGH","evidence_summary":"Application receipt confirmed."},
+    {"company":"Globex","role":"Data Analyst Intern","application_id":"GLX-22","status":"FINAL_INTERVIEW","status_at":"2026-09-04T02:00:00Z","provider":"outlook","message_id":"outlook-globex-final","confidence":"HIGH","evidence_summary":"Final-round interview invitation received."},
+    {"company":"Globex","role":"Data Analyst Intern","application_id":"GLX-22","status":"OFFER","status_at":"2026-09-06T02:00:00Z","provider":"outlook","message_id":"outlook-globex-offer","confidence":"HIGH","evidence_summary":"Internship offer notice received."},
+    {"company":"Globex","role":"Accounting Intern","application_id":"GLX-24","status":"APPLIED","status_at":"2026-09-02T02:00:00Z","provider":"outlook","message_id":"outlook-globex-accounting","confidence":"HIGH","evidence_summary":"Application receipt confirmed for a separate role."},
+    {"company":"Unknown","role":"Unknown","status":"NEEDS_REVIEW","status_at":"2026-09-06T03:00:00Z","provider":"gmail","message_id":"gmail-ambiguous","confidence":"LOW","evidence_summary":"Status-like message could not be tied to a company and role."}
+  ]
+}
+

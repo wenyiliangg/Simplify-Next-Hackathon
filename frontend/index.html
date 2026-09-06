@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Find and rank internships, then track your application pipeline from email." />
+  <title>Internship Compass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#">
+      <span class="brand-mark">N</span>
+      <span>Internship Compass</span>
+    </a>
+    <div class="header-actions">
+      <span id="auth-status" class="auth-status">Not signed in</span>
+      <button id="login-button" class="button button-dark">Sign in</button>
+      <button id="logout-button" class="button button-ghost hidden">Sign out</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">YOUR INTERNSHIP OPERATING SYSTEM</p>
+      <h1>Find the right roles.<br /><span>Know what to do next.</span></h1>
+      <p class="hero-copy">One private workspace to rank verified internships against your resume and turn application emails into a clear pipeline.</p>
+      <div class="trust-row">
+        <span>Official career pages</span>
+        <span>Read-only Gmail</span>
+        <span>Transparent fit scores</span>
+      </div>
+    </section>
+
+    <div id="setup-warning" class="notice hidden">
+      This deployment still uses placeholder configuration. Copy <code>config.example.js</code> to <code>config.js</code> and enter the CloudFormation outputs.
+    </div>
+
+    <section class="workspace">
+      <aside class="profile-panel card">
+        <div class="section-heading">
+          <div>
+            <p class="step">01 · Candidate profile</p>
+            <h2>Tell us what fits</h2>
+          </div>
+          <span id="resume-badge" class="badge">No resume</span>
+        </div>
+
+        <label id="resume-drop" class="upload-zone" for="resume-input">
+          <input id="resume-input" type="file" accept="application/pdf,.pdf" />
+          <span class="upload-icon">↑</span>
+          <strong>Upload your resume</strong>
+          <small>PDF only · parsed locally in your browser</small>
+          <span id="resume-name"></span>
+        </label>
+
+        <div class="field-grid">
+          <label>
+            Target direction
+            <select id="direction">
+              <option value="software engineering">Software engineering</option>
+              <option value="quantitative finance">Quantitative finance</option>
+              <option value="data science and analytics">Data / analytics</option>
+              <option value="accounting and finance">Accounting / finance</option>
+              <option value="product management">Product management</option>
+            </select>
+          </label>
+          <label>
+            Target location
+            <input id="location" value="Singapore" maxlength="100" />
+          </label>
+          <label>
+            Graduation date
+            <input id="graduation" type="month" value="2027-05" />
+          </label>
+          <label>
+            Availability
+            <input id="availability" value="May–August 2027" maxlength="100" />
+          </label>
+        </div>
+
+        <button id="rank-button" class="button button-primary button-wide">Find & rank internships</button>
+
+        <div class="privacy-note">
+          <strong>Privacy by design</strong>
+          <p>Your PDF stays in this browser. Only extracted text is sent for the fit request and is not written to the application tracker.</p>
+        </div>
+      </aside>
+
+      <section class="agent-panel card">
+        <div class="section-heading agent-heading">
+          <div>
+            <p class="step">02 · Career copilot</p>
+            <h2>Ask the orchestrator</h2>
+          </div>
+          <span class="live-dot"><i></i> AgentCore</span>
+        </div>
+
+        <div class="quick-actions">
+          <button data-prompt="Return my current stored internship application statuses. Do not scan Gmail and do not export a report.">View pipeline</button>
+          <button data-prompt="Sync my Gmail for internship application updates, update the tracker, and summarize what changed.">Sync Gmail</button>
+          <button data-prompt="Export my current application tracker as an Excel report. Do not scan Gmail first.">Download Excel</button>
+          <button data-prompt="Connect my Gmail account with read-only access.">Connect Gmail</button>
+        </div>
+
+        <div id="conversation" class="conversation" aria-live="polite">
+          <div class="message assistant-message">
+            <span class="message-label">Compass</span>
+            <p>Upload a resume to rank new opportunities, or connect Gmail to see your application pipeline.</p>
+          </div>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <textarea id="chat-input" rows="2" placeholder="Ask about roles, fit, deadlines, or application status…" maxlength="12000"></textarea>
+          <button class="send-button" type="submit" aria-label="Send">→</button>
+        </form>
+        <p id="request-status" class="request-status"></p>
+      </section>
+    </section>
+
+    <section id="results-section" class="results-section hidden">
+      <div class="section-heading">
+        <div>
+          <p class="step">03 · Decision board</p>
+          <h2>Your next best moves</h2>
+        </div>
+      </div>
+      <div id="summary-cards" class="summary-cards"></div>
+      <div id="rankings" class="rankings"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Built on Amazon Bedrock AgentCore</span>
+    <span>Gmail is read-only. The app never sends or deletes email.</span>
+  </footer>
+
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

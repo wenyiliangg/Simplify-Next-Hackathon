@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Serverless Gmail read-only, state, and Excel backend for the Internship Email Tracking Agent
+
+Parameters:
+  DeploymentBucketName:
+    Type: String
+    Default: internship-email-deploy-591255906109-us-east-1
+  DeploymentObjectKey:
+    Type: String
+    Default: email-tools.zip
+  DeploymentVersion:
+    Type: String
+    Default: adfc76235416307e
+    Description: Forces Lambda to reload the current deployment package when the S3 key is reused.
+  ReportBucketName:
+    Type: String
+    Default: internship-email-reports-591255906109-us-east-1
+  DemoUserId:
+    Type: String
+    Default: demo-user
+  GoogleClientId:
+    Type: String
+    Default: 485823270394-udpgv3e9fdjkeknsdvbqa4boflgbjih9.apps.googleusercontent.com
+  GoogleOAuthSecretName:
+    Type: String
+    Default: internship-email/google-oauth
+
+Resources:
+  ApplicationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: InternshipEmailTracker
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Project
+          Value: InternshipEmailTracker
+
+  ReportBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref ReportBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteReportsAfterSevenDays
+            Status: Enabled
+            ExpirationInDays: 7
+            Prefix: reports/
+      Tags:
+        - Key: Project
+          Value: InternshipEmailTracker
+
+  EmailToolsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: InternshipEmailToolsLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InternshipEmailToolsLeastPrivilege
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/InternshipEmailTools:*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                Resource: !GetAtt ApplicationTable.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub ${ReportBucket.Arn}/reports/*
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                Resource: !GetAtt ReportBucket.Arn
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:PutSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${GoogleOAuthSecretName}-*
+
+  GoogleOAuthApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: internship-email-google-oauth
+      Description: Google OAuth callback for read-only Gmail access
+      ProtocolType: HTTP
+
+  GoogleOAuthIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GoogleOAuthApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt EmailToolsFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  GoogleOAuthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GoogleOAuthApi
+      RouteKey: GET /oauth/google/callback
+      Target: !Sub integrations/${GoogleOAuthIntegration}
+
+  GoogleOAuthStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref GoogleOAuthApi
+      StageName: $default
+      AutoDeploy: true
+
+  EmailToolsFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - EmailToolsLogGroup
+    Properties:
+      FunctionName: InternshipEmailTools
+      Description: Idempotent application state and private Excel report tools
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt EmailToolsExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucketName
+        S3Key: !Ref DeploymentObjectKey
+      MemorySize: 512
+      Timeout: 60
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          APPLICATION_TABLE_NAME: !Ref ApplicationTable
+          REPORT_BUCKET_NAME: !Ref ReportBucket
+          ALLOW_DEMO_USER_ID: "true"
+          DEFAULT_DEMO_USER_ID: !Ref DemoUserId
+          DEFAULT_TIMEZONE: Asia/Singapore
+          DEPLOYMENT_VERSION: !Ref DeploymentVersion
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_OAUTH_SECRET_ID: !Ref GoogleOAuthSecretName
+          GOOGLE_OAUTH_REDIRECT_URI: !Sub https://${GoogleOAuthApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/oauth/google/callback
+      Tags:
+        - Key: Project
+          Value: InternshipEmailTracker
+
+  GoogleOAuthInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EmailToolsFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${GoogleOAuthApi}/*/GET/oauth/google/callback
+
+  EmailToolsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/InternshipEmailTools
+      RetentionInDays: 7
+
+  DailyReportSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: InternshipEmailDailyReportSchedulerRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeEmailToolsDaily
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt EmailToolsFunction.Arn
+
+  DailyReportSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: internship-email-daily-report
+      Description: Generate the private daily application status workbook at 23:55 Asia/Singapore
+      FlexibleTimeWindow:
+        # Quote OFF so YAML does not coerce it to the boolean false.
+        Mode: "OFF"
+      ScheduleExpression: cron(55 23 * * ? *)
+      ScheduleExpressionTimezone: Asia/Singapore
+      State: ENABLED
+      Target:
+        Arn: !GetAtt EmailToolsFunction.Arn
+        RoleArn: !GetAtt DailyReportSchedulerRole.Arn
+        Input: !Sub '{"_tool_name":"scheduled_daily_export","demo_user_id":"${DemoUserId}","timezone":"Asia/Singapore"}'
+
+Outputs:
+  ApplicationTableName:
+    Value: !Ref ApplicationTable
+  ReportBucketName:
+    Value: !Ref ReportBucket
+  EmailToolsFunctionName:
+    Value: !Ref EmailToolsFunction
+  EmailToolsFunctionArn:
+    Value: !GetAtt EmailToolsFunction.Arn
+  EmailToolsExecutionRoleArn:
+    Value: !GetAtt EmailToolsExecutionRole.Arn
+  DailyReportScheduleName:
+    Value: !Ref DailyReportSchedule
+  GoogleOAuthCallbackUrl:
+    Value: !Sub https://${GoogleOAuthApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/oauth/google/callback

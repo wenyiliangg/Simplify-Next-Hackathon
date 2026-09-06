@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Production web API and Cognito authentication for the Internship Orchestrator
+
+Parameters:
+  ApiCodeBucket:
+    Type: String
+    Description: S3 bucket containing the packaged API Lambda.
+  ApiCodeKey:
+    Type: String
+    Default: orchestrator-api.zip
+  HarnessArn:
+    Type: String
+    Default: arn:aws:bedrock-agentcore:us-east-1:591255906109:harness/internship_orchestrator_v1-aywDnExFKK
+  FrontendCallbackUrl:
+    Type: String
+    Default: http://localhost:5173/
+  FrontendLogoutUrl:
+    Type: String
+    Default: http://localhost:5173/
+  FrontendOrigin:
+    Type: String
+    Default: http://localhost:5173
+  CognitoDomainPrefix:
+    Type: String
+    Default: simplify-next-591255906109
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: SimplifyNextUsers
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      DeletionProtection: ACTIVE
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate: [email]
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: SimplifyNextWeb
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs: [!Ref FrontendCallbackUrl]
+      LogoutURLs: [!Ref FrontendLogoutUrl]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SimplifyNextOrchestratorApiRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeHarnessAndWriteLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeHarness
+                Resource:
+                  - !Ref HarnessArn
+                  - !Sub ${HarnessArn}/harness-endpoint/DEFAULT
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt RequestTable.Arn
+
+  RequestTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: SimplifyNextRequests
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SimplifyNextOrchestratorApi
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt ApiRole.Arn
+      Timeout: 360
+      MemorySize: 512
+      Architectures: [arm64]
+      Code:
+        S3Bucket: !Ref ApiCodeBucket
+        S3Key: !Ref ApiCodeKey
+      Environment:
+        Variables:
+          HARNESS_ARN: !Ref HarnessArn
+          HARNESS_QUALIFIER: DEFAULT
+          ALLOWED_ORIGIN: !Ref FrontendOrigin
+          MAX_MESSAGE_CHARS: "12000"
+          MAX_RESUME_CHARS: "60000"
+          JOB_TABLE: !Ref RequestTable
+          RESULT_TTL_SECONDS: "86400"
+
+  SelfInvokePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: InvokeAsyncWorker
+      Roles: [!Ref ApiRole]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt ApiFunction.Arn
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: SimplifyNextApi
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+
+  JwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      IdentitySource: [$request.header.Authorization]
+      Name: CognitoJwt
+      JwtConfiguration:
+        Audience: [!Ref UserPoolClient]
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  ChatRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /chat
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+      Target: !Sub integrations/${ApiIntegration}
+
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /health
+      AuthorizationType: NONE
+      Target: !Sub integrations/${ApiIntegration}
+
+  RequestRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /requests/{requestId}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+      Target: !Sub integrations/${ApiIntegration}
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+
+  ApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ApiFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+
+Outputs:
+  ApiUrl:
+    Value: !GetAtt HttpApi.ApiEndpoint
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  CognitoDomain:
+    Value: !Sub https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+  HarnessArn:
+    Value: !Ref HarnessArn
