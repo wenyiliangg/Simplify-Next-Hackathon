@@ -1,0 +1,15 @@
+schema_version: "1.0"
+name: internship_orchestrator_v1
+harness_id: internship_orchestrator_v1-aywDnExFKK
+region: us-east-1
+deployed_version: 2
+model:
+  provider: bedrock
+  id: global.anthropic.claude-sonnet-4-6
+system_prompt_file: system-prompt.md
+tools:
+  - internship-email-tools-t0yzltcdzr
+  - internship-search-tools-sn4nkumauc
+  - aws_browser_v1
+  - aws_codeinterpreter_v1
+
