@@ -1,0 +1,19 @@
+schema_version: "1.0"
+region: us-east-1
+gateway: internship-email-tools-t0yzltcdzr
+lambda_function: InternshipEmailTools
+oauth_callback: https://ik2i54o3q5.execute-api.us-east-1.amazonaws.com/oauth/google/callback
+gmail_scope: https://www.googleapis.com/auth/gmail.readonly
+tools:
+  - gmail_begin_authorization
+  - gmail_connection_status
+  - gmail_scan_application_emails
+  - upsert_application_events
+  - get_application_statuses
+  - export_daily_application_excel
+  - get_sync_checkpoint
+  - update_sync_checkpoint
+
+# OAuth client secrets, access tokens, refresh tokens, and authorization codes
+# must remain in AWS-managed secret storage and must never be committed.
+
