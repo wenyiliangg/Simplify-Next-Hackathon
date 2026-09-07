@@ -34,6 +34,12 @@ python3 -m http.server 5173
 
 Open `http://localhost:5173`. Authentication and chat require deployed values in `frontend/config.js`; the page and PDF parser can still be previewed before that.
 
+For a presentation that must not call AWS or Gmail, open
+`http://localhost:5173/?demo=1` or click **Preview demo**. The page clearly marks
+all displayed identities, messages, jobs, and scores as sample data and provides
+a clickable walkthrough of Gmail connection, synchronization, pipeline, Excel,
+and fit-ranking results.
+
 ## Production deployment
 
 The current manual Amplify deployment is available at

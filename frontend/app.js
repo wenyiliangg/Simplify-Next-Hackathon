@@ -1,11 +1,13 @@
 const config = window.APP_CONFIG || {};
 const $ = (id) => document.getElementById(id);
 const configured = config.apiUrl && !config.apiUrl.includes("YOUR_") && config.cognitoClientId && !config.cognitoClientId.includes("YOUR_");
+const demoMode = new URLSearchParams(location.search).get("demo") === "1";
 let resumeText = "";
 let conversationId = localStorage.getItem("conversation_id") || crypto.randomUUID();
 localStorage.setItem("conversation_id", conversationId);
 
-if (!configured) $("setup-warning").classList.remove("hidden");
+if (!configured && !demoMode) $("setup-warning").classList.remove("hidden");
+if (demoMode) $("demo-warning").classList.remove("hidden");
 
 function base64Url(bytes) {
   return btoa(String.fromCharCode(...new Uint8Array(bytes)))
@@ -23,6 +25,7 @@ function randomVerifier() {
 }
 
 function token() {
+  if (demoMode) return "offline-demo-token";
   const value = sessionStorage.getItem("id_token");
   const expires = Number(sessionStorage.getItem("token_expires") || 0);
   if (!value || Date.now() >= expires) return null;
@@ -30,10 +33,59 @@ function token() {
 }
 
 function updateAuthUi() {
+  if (demoMode) {
+    $("auth-status").textContent = "Offline demo";
+    $("login-button").classList.add("hidden");
+    $("logout-button").classList.add("hidden");
+    $("demo-button").textContent = "Exit demo";
+    return;
+  }
   const signedIn = Boolean(token());
   $("auth-status").textContent = signedIn ? "Signed in securely" : "Not signed in";
   $("login-button").classList.toggle("hidden", signedIn);
   $("logout-button").classList.toggle("hidden", !signedIn);
+}
+
+const demoStatuses = [
+  {company: "Jane Street", role: "Software Engineer Intern", status: "INTERVIEW", status_at: "2026-09-06T09:30:00Z", confidence: "HIGH"},
+  {company: "Stripe", role: "Data Science Intern", status: "ASSESSMENT", status_at: "2026-09-05T04:10:00Z", confidence: "HIGH"},
+  {company: "Canva", role: "Backend Engineering Intern", status: "APPLIED", status_at: "2026-09-03T12:00:00Z", confidence: "HIGH"},
+  {company: "Airbnb", role: "Software Engineer Intern", status: "REJECTED", status_at: "2026-09-02T08:15:00Z", confidence: "HIGH"},
+  {company: "Datadog", role: "Product Analytics Intern", status: "OFFER", status_at: "2026-09-01T06:45:00Z", confidence: "HIGH"}
+];
+
+const demoJobs = [
+  {company: "Cloudflare", role: "Software Engineer Intern", location: "Singapore · Skills 28/30 · Experience 22/25 · Projects 14/15", priority_score: 91, eligibility: "ELIGIBLE"},
+  {company: "TikTok", role: "Backend Software Engineer Intern", location: "Singapore · Skills 26/30 · Experience 21/25 · Projects 13/15", priority_score: 87, eligibility: "ELIGIBLE"},
+  {company: "Grab", role: "Data Platform Intern", location: "Singapore · Skills 25/30 · Experience 20/25 · Projects 13/15", priority_score: 84, eligibility: "ELIGIBLE"},
+  {company: "Wise", role: "Software Engineering Intern", location: "Singapore · Skills 24/30 · Experience 20/25 · Projects 12/15", priority_score: 81, eligibility: "ELIGIBLE"},
+  {company: "Shopee", role: "Machine Learning Intern", location: "Singapore · Skills 23/30 · Experience 18/25 · Projects 13/15", priority_score: 78, eligibility: "ELIGIBLE"}
+];
+
+function demoResponse(task) {
+  const base = {
+    email_tracker: {connected: true, sync_status: "NOT_REQUESTED", messages_examined: 0, relevant_messages: 0, application_statuses: []},
+    fit_agent: {candidate_ready: false, ranked_jobs: [], needs_verification: [], ineligible_jobs: []},
+    excel_report: {generated: false}
+  };
+  if (task === "CONNECT_GMAIL") {
+    return {message: "Demo: Gmail authorization succeeded with read-only access. In production, Google shows its consent screen here.", result: base};
+  }
+  if (task === "EMAIL_SYNC") {
+    base.email_tracker = {connected: true, sync_status: "SUCCESS", messages_examined: 20, relevant_messages: 5, application_statuses: demoStatuses};
+    return {message: "Demo: scanned 20 Gmail messages, identified 5 application updates, and refreshed the private pipeline.", result: base};
+  }
+  if (task === "EMAIL_STATUS") {
+    base.email_tracker.application_statuses = demoStatuses;
+    return {message: "Demo: loaded 5 stored application statuses without accessing Gmail again.", result: base};
+  }
+  if (task === "EXPORT_DAILY") {
+    base.email_tracker.application_statuses = demoStatuses;
+    base.excel_report = {generated: true, s3_uri: "s3://private-user-report/demo.xlsx"};
+    return {message: "Demo: a private Excel report would be generated here with summary, applications, today's changes, and review sheets.", result: base};
+  }
+  base.fit_agent = {candidate_ready: true, ranked_jobs: demoJobs, needs_verification: [], ineligible_jobs: []};
+  return {message: "Demo: verified official career pages, applied hard eligibility gates, and ranked five sample internships using the candidate profile.", result: base};
 }
 
 async function login() {
@@ -169,6 +221,16 @@ function renderResult(result) {
     const span = document.createElement("span"); span.textContent = label[0].toUpperCase() + label.slice(1);
     card.append(strong, span); $("summary-cards").append(card);
   }
+  $("pipeline").innerHTML = "";
+  statuses.forEach((application) => {
+    const row = document.createElement("div"); row.className = "pipeline-row";
+    const company = document.createElement("strong"); company.textContent = application.company || "Unknown company";
+    const role = document.createElement("span"); role.className = "pipeline-role"; role.textContent = application.role || "Role not identified";
+    const status = document.createElement("span"); status.className = "status-pill"; status.textContent = application.status || "NEEDS_REVIEW";
+    const date = document.createElement("span"); date.className = "pipeline-date";
+    date.textContent = application.status_at ? new Date(application.status_at).toLocaleDateString() : "Date unavailable";
+    row.append(company, role, status, date); $("pipeline").append(row);
+  });
   $("rankings").innerHTML = "";
   jobs.forEach((job, index) => {
     const card = document.createElement("div"); card.className = "ranking-card";
@@ -191,6 +253,14 @@ async function sendPrompt(message, includeResume = false, task = "AUTO") {
   $("request-status").textContent = "The orchestrator is working. Verified job searches can take up to a few minutes.";
   document.querySelectorAll("button").forEach((b) => b.disabled = true);
   try {
+    if (demoMode) {
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      const demo = demoResponse(task === "AUTO" ? "DISCOVER_AND_RANK" : task);
+      typing.remove();
+      addMessage("assistant", demo.message);
+      renderResult(demo.result);
+      return;
+    }
     const response = await fetch(`${config.apiUrl}/chat`, {
       method: "POST",
       headers: {"content-type": "application/json", authorization: `Bearer ${token()}`},
@@ -230,6 +300,11 @@ async function sendPrompt(message, includeResume = false, task = "AUTO") {
 
 $("login-button").addEventListener("click", login);
 $("logout-button").addEventListener("click", logout);
+$("demo-button").addEventListener("click", () => {
+  const url = new URL(location.href);
+  if (demoMode) url.searchParams.delete("demo"); else url.searchParams.set("demo", "1");
+  location.assign(url);
+});
 $("resume-input").addEventListener("change", async (event) => {
   const file = event.target.files?.[0]; if (!file) return;
   $("resume-name").textContent = "Reading PDF…";
@@ -248,7 +323,7 @@ const drop = $("resume-drop");
 drop.addEventListener("drop", (event) => { const file = event.dataTransfer.files?.[0]; if (file) { const transfer = new DataTransfer(); transfer.items.add(file); $("resume-input").files = transfer.files; $("resume-input").dispatchEvent(new Event("change")); } });
 
 $("rank-button").addEventListener("click", () => {
-  if (!resumeText) return alert("Upload a text-based PDF resume first.");
+  if (!resumeText && !demoMode) return alert("Upload a text-based PDF resume first.");
   const prompt = `Find and rank at least five currently open ${$("direction").value} internships in ${$("location").value}. My graduation date is ${$("graduation").value} and my availability is ${$("availability").value}. Verify official job descriptions, apply hard eligibility gates, show the score breakdown, and rank by priority. Do not scan email.`;
   sendPrompt(prompt, true, "DISCOVER_AND_RANK");
 });

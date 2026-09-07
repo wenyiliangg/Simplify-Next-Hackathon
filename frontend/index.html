@@ -21,6 +21,7 @@
     </a>
     <div class="header-actions">
       <span id="auth-status" class="auth-status">Not signed in</span>
+      <button id="demo-button" class="button button-ghost">Preview demo</button>
       <button id="login-button" class="button button-dark">Sign in</button>
       <button id="logout-button" class="button button-ghost hidden">Sign out</button>
     </div>
@@ -40,6 +41,9 @@
 
     <div id="setup-warning" class="notice hidden">
       This deployment still uses placeholder configuration. Copy <code>config.example.js</code> to <code>config.js</code> and enter the CloudFormation outputs.
+    </div>
+    <div id="demo-warning" class="notice demo-notice hidden">
+      <strong>Offline demo mode:</strong> all names, emails, jobs, and results below are sample data. No Gmail account or AWS service is accessed.
     </div>
 
     <section class="workspace">
@@ -132,6 +136,7 @@
         </div>
       </div>
       <div id="summary-cards" class="summary-cards"></div>
+      <div id="pipeline" class="pipeline"></div>
       <div id="rankings" class="rankings"></div>
     </section>
   </main>
