@@ -21,7 +21,7 @@
     </a>
     <div class="header-actions">
       <span id="auth-status" class="auth-status">Not signed in</span>
-      <button id="demo-button" class="button button-ghost">Preview demo</button>
+      <button id="signup-button" class="button button-primary">Sign up</button>
       <button id="login-button" class="button button-dark">Sign in</button>
       <button id="logout-button" class="button button-ghost hidden">Sign out</button>
     </div>
@@ -42,10 +42,6 @@
     <div id="setup-warning" class="notice hidden">
       This deployment still uses placeholder configuration. Copy <code>config.example.js</code> to <code>config.js</code> and enter the CloudFormation outputs.
     </div>
-    <div id="demo-warning" class="notice demo-notice hidden">
-      <strong>Offline demo mode:</strong> all names, emails, jobs, and results below are sample data. No Gmail account or AWS service is accessed.
-    </div>
-
     <section class="workspace">
       <aside class="profile-panel card">
         <div class="section-heading">
@@ -140,6 +136,33 @@
       <div id="rankings" class="rankings"></div>
     </section>
   </main>
+
+  <dialog id="onboarding-dialog" class="onboarding-dialog">
+    <div class="onboarding-card">
+      <button id="onboarding-close" class="modal-close" aria-label="Close">×</button>
+      <p class="step">GET STARTED</p>
+      <h2>Set up your workspace</h2>
+      <p class="modal-copy">Create your private account, then connect Gmail with read-only access.</p>
+
+      <div class="onboarding-step">
+        <span id="account-step-number" class="step-number">1</span>
+        <div class="step-content">
+          <h3>Create your account</h3>
+          <p id="account-help">Your account keeps résumé requests and application records private.</p>
+          <button id="create-account-button" class="button button-dark" type="button">Create secure account</button>
+        </div>
+      </div>
+
+      <div id="gmail-onboarding-step" class="onboarding-step">
+        <span id="gmail-step-number" class="step-number">2</span>
+        <div class="step-content">
+          <h3>Connect Gmail</h3>
+          <p>We request <strong>read-only</strong> access. Internship Compass cannot send, delete, move, label, or mark messages as read.</p>
+          <button id="modal-connect-gmail" class="button button-primary">Continue to Gmail</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
 
   <footer>
     <span>Built on Amazon Bedrock AgentCore</span>
