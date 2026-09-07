@@ -89,6 +89,16 @@ class EmailToolsTests(unittest.TestCase):
         self.assertIn("NEEDS_REVIEW", statuses)
         self.assertEqual(len(latest), 4)
 
+    def test_production_identity_requires_trusted_lambda_context(self):
+        context = type(
+            "Context",
+            (),
+            {"client_context": type("ClientContext", (), {"custom": {"authenticatedUserId": "user-123"}})()},
+        )()
+        self.assertEqual(tools._resolve_user_id({}, context), "user-123")
+        with self.assertRaises(PermissionError):
+            tools._resolve_user_id({"demo_user_id": "attacker"}, None)
+
 
 if __name__ == "__main__":
     unittest.main()

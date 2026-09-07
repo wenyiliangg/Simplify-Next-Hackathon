@@ -184,7 +184,7 @@ function renderResult(result) {
   $("results-section").scrollIntoView({behavior: "smooth", block: "start"});
 }
 
-async function sendPrompt(message, includeResume = false) {
+async function sendPrompt(message, includeResume = false, task = "AUTO") {
   if (!token()) { await login(); return; }
   addMessage("user", message);
   const typing = addTyping();
@@ -194,7 +194,7 @@ async function sendPrompt(message, includeResume = false) {
     const response = await fetch(`${config.apiUrl}/chat`, {
       method: "POST",
       headers: {"content-type": "application/json", authorization: `Bearer ${token()}`},
-      body: JSON.stringify({message, conversationId, resumeText: includeResume ? resumeText : ""})
+      body: JSON.stringify({message, conversationId, resumeText: includeResume ? resumeText : "", task})
     });
     const data = await response.json();
     if (response.status === 401) { sessionStorage.clear(); updateAuthUi(); throw new Error("Your session expired. Please sign in again."); }
@@ -250,9 +250,9 @@ drop.addEventListener("drop", (event) => { const file = event.dataTransfer.files
 $("rank-button").addEventListener("click", () => {
   if (!resumeText) return alert("Upload a text-based PDF resume first.");
   const prompt = `Find and rank at least five currently open ${$("direction").value} internships in ${$("location").value}. My graduation date is ${$("graduation").value} and my availability is ${$("availability").value}. Verify official job descriptions, apply hard eligibility gates, show the score breakdown, and rank by priority. Do not scan email.`;
-  sendPrompt(prompt, true);
+  sendPrompt(prompt, true, "DISCOVER_AND_RANK");
 });
-document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => sendPrompt(button.dataset.prompt, false)));
+document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => sendPrompt(button.dataset.prompt, false, button.dataset.task || "AUTO")));
 $("chat-form").addEventListener("submit", (event) => { event.preventDefault(); const value = $("chat-input").value.trim(); if (value) { $("chat-input").value = ""; sendPrompt(value, Boolean(resumeText)); } });
 
 try { await finishLogin(); } catch (error) { addMessage("assistant", error.message); }

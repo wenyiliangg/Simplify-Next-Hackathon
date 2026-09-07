@@ -11,15 +11,18 @@ Parameters:
   HarnessArn:
     Type: String
     Default: arn:aws:bedrock-agentcore:us-east-1:591255906109:harness/internship_orchestrator_v1-aywDnExFKK
+  EmailToolsFunctionName:
+    Type: String
+    Default: InternshipEmailTools
   FrontendCallbackUrl:
     Type: String
-    Default: http://localhost:5173/
+    Default: https://production.d7ti2jcdjuy09.amplifyapp.com/
   FrontendLogoutUrl:
     Type: String
-    Default: http://localhost:5173/
+    Default: https://production.d7ti2jcdjuy09.amplifyapp.com/
   FrontendOrigin:
     Type: String
-    Default: http://localhost:5173
+    Default: https://production.d7ti2jcdjuy09.amplifyapp.com
   CognitoDomainPrefix:
     Type: String
     Default: simplify-next-591255906109
@@ -90,6 +93,22 @@ Resources:
                   - !Ref HarnessArn
                   - !Sub ${HarnessArn}/harness-endpoint/DEFAULT
               - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                Condition:
+                  StringEquals:
+                    bedrock:InferenceProfileArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${EmailToolsFunctionName}
+              - Effect: Allow
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
@@ -130,6 +149,8 @@ Resources:
         Variables:
           HARNESS_ARN: !Ref HarnessArn
           HARNESS_QUALIFIER: DEFAULT
+          EMAIL_TOOLS_FUNCTION: !Ref EmailToolsFunctionName
+          EMAIL_CLASSIFIER_MODEL_ID: us.anthropic.claude-haiku-4-5-20251001-v1:0
           ALLOWED_ORIGIN: !Ref FrontendOrigin
           MAX_MESSAGE_CHARS: "12000"
           MAX_RESUME_CHARS: "60000"

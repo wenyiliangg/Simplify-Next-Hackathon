@@ -40,7 +40,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 TABLE_NAME = os.getenv("APPLICATION_TABLE_NAME", "InternshipEmailTracker")
 REPORT_BUCKET = os.getenv("REPORT_BUCKET_NAME", "")
-ALLOW_DEMO_USER_ID = os.getenv("ALLOW_DEMO_USER_ID", "true").lower() == "true"
+ALLOW_DEMO_USER_ID = os.getenv("ALLOW_DEMO_USER_ID", "false").lower() == "true"
 DEFAULT_DEMO_USER_ID = os.getenv("DEFAULT_DEMO_USER_ID", "demo-user")
 DEFAULT_TIMEZONE = os.getenv("DEFAULT_TIMEZONE", "Asia/Singapore")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -521,19 +521,33 @@ def gmail_begin_authorization(event: dict[str, Any], context: Any) -> dict[str, 
 
 def gmail_connection_status(event: dict[str, Any], context: Any) -> dict[str, Any]:
     user_id = _resolve_user_id(event, context)
+    token_item = _gmail_token_item(user_id)
     secret = _gmail_secret()
-    connected = bool((secret.get("refresh_tokens") or {}).get(user_id))
+    # Legacy secret-map fallback preserves the already connected demo account
+    # during migration. New authorizations are stored per user in DynamoDB.
+    connected = bool(token_item.get("refresh_token") or (secret.get("refresh_tokens") or {}).get(user_id))
     return {
         "provider": "gmail",
         "connected": connected,
         "scope": GMAIL_READONLY_SCOPE,
-        "email": (secret.get("emails") or {}).get(user_id),
+        "email": token_item.get("email") or (secret.get("emails") or {}).get(user_id),
     }
+
+
+def _gmail_token_item(user_id: str) -> dict[str, Any]:
+    if _table is None:  # pragma: no cover
+        raise RuntimeError("DynamoDB is not configured")
+    return _table.get_item(
+        Key={"pk": f"USER#{user_id}", "sk": "OAUTH#gmail"},
+        ConsistentRead=True,
+    ).get("Item") or {}
 
 
 def _gmail_access_token(user_id: str) -> str:
     secret = _gmail_secret()
-    refresh_token = (secret.get("refresh_tokens") or {}).get(user_id)
+    refresh_token = _gmail_token_item(user_id).get("refresh_token")
+    if not refresh_token:  # One-time compatibility for the existing owner account.
+        refresh_token = (secret.get("refresh_tokens") or {}).get(user_id)
     if not refresh_token:
         raise PermissionError("Gmail is not connected. Run gmail_begin_authorization first.")
     token = _http_json(
@@ -676,14 +690,23 @@ def _oauth_callback(event: dict[str, Any]) -> dict[str, Any]:
             400,
             "Google did not return an offline token. Return to the agent and start authorization again.",
         )
-    secret.setdefault("refresh_tokens", {})[user_id] = str(refresh_token)
+    connected_email = None
     if access_token:
         profile = _gmail_api("users/me/profile", str(access_token))
-        secret.setdefault("emails", {})[user_id] = _clean_text(
-            profile.get("emailAddress"), 320
-        )
-    _put_gmail_secret(secret)
+        connected_email = _clean_text(profile.get("emailAddress"), 320)
     if _table is not None:
+        _table.put_item(
+            Item={
+                "pk": f"USER#{user_id}",
+                "sk": "OAUTH#gmail",
+                "record_type": "OAUTH_TOKEN",
+                "provider": "gmail",
+                "refresh_token": str(refresh_token),
+                "email": connected_email,
+                "scope": GMAIL_READONLY_SCOPE,
+                "updated_at": _now_iso(),
+            }
+        )
         _table.put_item(
             Item={
                 "pk": f"USER#{user_id}",

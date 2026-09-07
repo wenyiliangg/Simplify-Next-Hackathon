@@ -77,6 +77,22 @@ API/proxy (or an authenticated Gateway flow that injects a verified subject),
 remove `demo_user_id` from the public tool schema, and set
 `ALLOW_DEMO_USER_ID=false`.
 
+The `codex/production-app` source now implements that trusted path: the API
+derives `sub` from the API Gateway-verified Cognito JWT and invokes the email
+Lambda synchronously with the identity in Lambda ClientContext. New OAuth tokens
+are stored in per-user DynamoDB partitions. These changes are committed but are
+**not deployed** because the lease is frozen.
+
+## Sandbox budget freeze
+
+The Innovation Sandbox lease exceeded its configured budget and the AWS account
+assignment was removed. This is a lease-level control rather than a billing
+balance that the lease user can top up. A Sandbox Manager/Administrator must
+increase the lease maximum budget and then unfreeze it. If the lease has already
+terminated, request a new lease instead. Active resources may continue to incur
+cost while an account is frozen, so the administrator should either restore
+access promptly or stop/clean up the resources.
+
 The Orchestrator model and tool bindings are recorded in `agentcore/orchestrator.yaml`; its exact system prompt is in `agentcore/system-prompt.md`.
 
 ## Source layout
