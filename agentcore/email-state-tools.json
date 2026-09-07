@@ -1,0 +1,115 @@
+[
+  {
+    "name": "upsert_application_events",
+    "description": "Persist validated compact internship application status events. Never send raw email bodies or OAuth data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."},
+        "events": {
+          "type": "array",
+          "description": "One or more validated application events.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "company": {"type": "string"},
+              "role": {"type": "string"},
+              "application_id": {"type": "string"},
+              "application_key": {"type": "string"},
+              "status": {"type": "string", "description": "Canonical status enum."},
+              "status_at": {"type": "string", "description": "ISO-8601 timestamp."},
+              "provider": {"type": "string", "description": "gmail or outlook."},
+              "message_id": {"type": "string", "description": "Provider message ID used only for hashing and idempotency."},
+              "location": {"type": "string"},
+              "confidence": {"type": "string", "description": "HIGH, MEDIUM, or LOW."},
+              "evidence_summary": {"type": "string", "description": "Short non-sensitive status evidence; never a full body."}
+            },
+            "required": ["status", "status_at", "provider", "message_id", "evidence_summary"]
+          }
+        }
+      },
+      "required": ["events"]
+    }
+  },
+  {
+    "name": "get_application_statuses",
+    "description": "Get the latest chronologically valid status for every known internship application.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."},
+        "as_of": {"type": "string", "description": "Optional ISO-8601 cutoff."}
+      }
+    }
+  },
+  {
+    "name": "export_daily_application_excel",
+    "description": "Create a private formatted Excel snapshot of every application status and return a short-lived download URL.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."},
+        "as_of": {"type": "string", "description": "Optional ISO-8601 report timestamp."},
+        "timezone": {"type": "string", "description": "IANA timezone; default Asia/Singapore."}
+      }
+    }
+  },
+  {
+    "name": "get_sync_checkpoint",
+    "description": "Read the last successful incremental sync checkpoint for Gmail or Outlook.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."},
+        "provider": {"type": "string", "description": "gmail or outlook."}
+      },
+      "required": ["provider"]
+    }
+  },
+  {
+    "name": "update_sync_checkpoint",
+    "description": "Update a provider checkpoint only after all messages through that checkpoint were processed successfully.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."},
+        "provider": {"type": "string", "description": "gmail or outlook."},
+        "checkpoint": {"type": "string"},
+        "synced_at": {"type": "string", "description": "ISO-8601 timestamp."}
+      },
+      "required": ["provider", "checkpoint"]
+    }
+  },
+  {
+    "name": "gmail_connection_status",
+    "description": "Check whether the demo user's Gmail account has granted delegated read-only access.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."}
+      }
+    }
+  },
+  {
+    "name": "gmail_begin_authorization",
+    "description": "Create a short-lived Google consent URL for delegated Gmail read-only access. Never request a password.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."}
+      }
+    }
+  },
+  {
+    "name": "gmail_scan_application_emails",
+    "description": "Search and retrieve a compact chronological batch of internship-related Gmail messages using delegated read-only access. Attachments are never fetched and message bodies are not persisted.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "demo_user_id": {"type": "string", "description": "Console-demo identity only."},
+        "query": {"type": "string", "description": "Optional Gmail search query. Defaults to internship application and status terms from the last year."},
+        "max_results": {"type": "integer", "minimum": 1, "maximum": 30, "default": 20}
+      }
+    }
+  }
+]
