@@ -29,7 +29,7 @@ Users do **not** create AWS resources or enter AWS credentials. AWS is configure
 4. grants the app read-only Gmail access; and
 5. can revoke access later from their Google Account.
 
-The current Google OAuth consent screen is in **Testing** status and the owner's Gmail account is a test user. In that state, only explicitly added Google test users can authorize. The repository now contains verified user propagation and disables the `demo-user` fallback, but those packages still need to be deployed after AWS access is restored. Then change the Google OAuth app to Production and complete Google's verification for the restricted `gmail.readonly` scope. The OAuth client ID and redirect URI are app-level configuration; users do not configure them individually.
+The current Google OAuth consent screen is in **Testing** status and the owner's Gmail account is a test user. In that state, only explicitly added Google test users can authorize, and external-testing refresh tokens using Gmail scopes expire after seven days. The repository now contains verified user propagation and disables the `demo-user` fallback, but those packages still need to be deployed after AWS access is restored. Then change the Google OAuth app to Production and complete Google's verification for the restricted `gmail.readonly` scope. Because restricted Gmail data is transmitted through the AWS backend, Google may also require an approved third-party security assessment. The OAuth client ID and redirect URI are app-level configuration; users do not configure them individually.
 
 Never commit the Google client secret or any refresh/access token. The app-level
 Google client secret and OAuth state signing secret remain in AWS Secrets

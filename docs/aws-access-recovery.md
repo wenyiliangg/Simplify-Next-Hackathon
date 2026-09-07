@@ -54,7 +54,10 @@ application records, and Excel report.
 ## 5. Provider launch gates
 
 - Gmail: move the Google OAuth consent app from Testing to Production and
-  complete verification for `gmail.readonly` before admitting general users.
+  complete verification for the restricted `gmail.readonly` scope before
+  admitting general users. Testing-mode Gmail refresh tokens expire after seven
+  days; server-side handling of restricted data may require Google's approved
+  third-party security assessment.
 - Never put OAuth secrets, tokens, mailbox contents, or resume text in GitHub.
 
 ## 6. Control cost after unfreezing
