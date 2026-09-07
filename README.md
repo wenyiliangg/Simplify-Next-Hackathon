@@ -15,6 +15,10 @@ Gmail connection, job discovery, ranking, and Excel export require the deployed
 AWS backend. See [`docs/demo-script.md`](docs/demo-script.md) for the presentation
 sequence.
 
+For the interactive prototype, open `http://localhost:5173/?preview=1`. It skips
+authentication and returns representative sample results, with a persistent
+prototype/sample-data label in the header.
+
 ## Production implementation
 
 - The authenticated API routes requests between the fit Harness and the

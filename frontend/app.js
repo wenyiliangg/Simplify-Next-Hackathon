@@ -1,11 +1,13 @@
 const config = window.APP_CONFIG || {};
 const $ = (id) => document.getElementById(id);
 const configured = config.apiUrl && !config.apiUrl.includes("YOUR_") && config.cognitoClientId && !config.cognitoClientId.includes("YOUR_");
+const previewMode = new URLSearchParams(location.search).get("preview") === "1";
 let resumeText = "";
 let conversationId = localStorage.getItem("conversation_id") || crypto.randomUUID();
 localStorage.setItem("conversation_id", conversationId);
 
-if (!configured) $("setup-warning").classList.remove("hidden");
+if (!configured && !previewMode) $("setup-warning").classList.remove("hidden");
+if (previewMode) $("preview-badge").classList.remove("hidden");
 
 function base64Url(bytes) {
   return btoa(String.fromCharCode(...new Uint8Array(bytes)))
@@ -23,6 +25,7 @@ function randomVerifier() {
 }
 
 function token() {
+  if (previewMode) return "prototype-preview-token";
   const value = sessionStorage.getItem("id_token");
   const expires = Number(sessionStorage.getItem("token_expires") || 0);
   if (!value || Date.now() >= expires) return null;
@@ -30,11 +33,58 @@ function token() {
 }
 
 function updateAuthUi() {
+  if (previewMode) {
+    $("auth-status").textContent = "Alex Chen · Preview session";
+    $("login-button").classList.add("hidden");
+    $("logout-button").classList.add("hidden");
+    $("signup-button").classList.remove("hidden");
+    return;
+  }
   const signedIn = Boolean(token());
   $("auth-status").textContent = signedIn ? "Signed in securely" : "Not signed in";
   $("login-button").classList.toggle("hidden", signedIn);
   $("signup-button").classList.toggle("hidden", signedIn);
   $("logout-button").classList.toggle("hidden", !signedIn);
+}
+
+const previewStatuses = [
+  {company: "Jane Street", role: "Software Engineer Intern", status: "INTERVIEW", status_at: "2026-09-06T09:30:00Z"},
+  {company: "Stripe", role: "Data Science Intern", status: "ASSESSMENT", status_at: "2026-09-05T04:10:00Z"},
+  {company: "Canva", role: "Backend Engineering Intern", status: "APPLIED", status_at: "2026-09-03T12:00:00Z"},
+  {company: "Airbnb", role: "Software Engineer Intern", status: "REJECTED", status_at: "2026-09-02T08:15:00Z"},
+  {company: "Datadog", role: "Product Analytics Intern", status: "OFFER", status_at: "2026-09-01T06:45:00Z"}
+];
+
+const previewJobs = [
+  {company: "Cloudflare", role: "Software Engineer Intern", location: "Singapore · Skills 28/30 · Experience 22/25 · Projects 14/15", priority_score: 91, eligibility: "ELIGIBLE"},
+  {company: "TikTok", role: "Backend Software Engineer Intern", location: "Singapore · Skills 26/30 · Experience 21/25 · Projects 13/15", priority_score: 87, eligibility: "ELIGIBLE"},
+  {company: "Grab", role: "Data Platform Intern", location: "Singapore · Skills 25/30 · Experience 20/25 · Projects 13/15", priority_score: 84, eligibility: "ELIGIBLE"},
+  {company: "Wise", role: "Software Engineering Intern", location: "Singapore · Skills 24/30 · Experience 20/25 · Projects 12/15", priority_score: 81, eligibility: "ELIGIBLE"},
+  {company: "Shopee", role: "Machine Learning Intern", location: "Singapore · Skills 23/30 · Experience 18/25 · Projects 13/15", priority_score: 78, eligibility: "ELIGIBLE"}
+];
+
+function previewResponse(task) {
+  const result = {
+    email_tracker: {connected: true, application_statuses: []},
+    fit_agent: {candidate_ready: false, ranked_jobs: []},
+    excel_report: {generated: false}
+  };
+  if (task === "CONNECT_GMAIL") return {message: "Gmail connection flow completed for the prototype preview.", result};
+  if (task === "EMAIL_SYNC") {
+    result.email_tracker.application_statuses = previewStatuses;
+    return {message: "Processed 20 messages and identified 5 application updates.", result};
+  }
+  if (task === "EMAIL_STATUS") {
+    result.email_tracker.application_statuses = previewStatuses;
+    return {message: "Loaded 5 application statuses from the tracker.", result};
+  }
+  if (task === "EXPORT_DAILY") {
+    result.email_tracker.application_statuses = previewStatuses;
+    result.excel_report.generated = true;
+    return {message: "Prepared the application tracker workbook for download.", result};
+  }
+  result.fit_agent = {candidate_ready: true, ranked_jobs: previewJobs};
+  return {message: "Compared the candidate profile with five internship opportunities and ranked them by priority.", result};
 }
 
 async function beginCognito(path = "/oauth2/authorize") {
@@ -57,12 +107,14 @@ async function login() { return beginCognito("/oauth2/authorize"); }
 async function signup() { return beginCognito("/signup"); }
 
 function openOnboarding() {
-  const accountReady = Boolean(token());
+  const accountReady = previewMode || Boolean(token());
+  $("account-preview-note").classList.toggle("hidden", !previewMode);
+  $("gmail-preview-note").classList.toggle("hidden", !previewMode);
   $("account-help").textContent = accountReady
-    ? "Your account is signed in securely."
+    ? (previewMode ? "Preview the account creation experience." : "Your account is signed in securely.")
     : "Account creation is securely handled by Amazon Cognito.";
-  $("create-account-button").textContent = accountReady ? "Account ready" : "Create secure account";
-  $("create-account-button").disabled = accountReady;
+  $("create-account-button").textContent = previewMode ? "Preview sign-up" : (accountReady ? "Account ready" : "Create secure account");
+  $("create-account-button").disabled = accountReady && !previewMode;
   if (accountReady) {
     $("account-step-number").textContent = "✓";
     $("account-step-number").classList.add("complete");
@@ -222,6 +274,14 @@ async function sendPrompt(message, includeResume = false, task = "AUTO") {
   $("request-status").textContent = "The orchestrator is working. Verified job searches can take up to a few minutes.";
   document.querySelectorAll("button").forEach((b) => b.disabled = true);
   try {
+    if (previewMode) {
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      const preview = previewResponse(task === "AUTO" ? "DISCOVER_AND_RANK" : task);
+      typing.remove();
+      addMessage("assistant", preview.message);
+      renderResult(preview.result);
+      return;
+    }
     const response = await fetch(`${config.apiUrl}/chat`, {
       method: "POST",
       headers: {"content-type": "application/json", authorization: `Bearer ${token()}`},
@@ -266,7 +326,14 @@ $("onboarding-close").addEventListener("click", () => $("onboarding-dialog").clo
 $("onboarding-dialog").addEventListener("click", (event) => {
   if (event.target === $("onboarding-dialog")) $("onboarding-dialog").close();
 });
-$("create-account-button").addEventListener("click", signup);
+$("create-account-button").addEventListener("click", () => {
+  if (previewMode) {
+    addMessage("assistant", "Account creation is ready to continue in the prototype preview.");
+    $("onboarding-dialog").close();
+    return;
+  }
+  signup();
+});
 $("modal-connect-gmail").addEventListener("click", () => {
   $("onboarding-dialog").close();
   sendPrompt("Connect my Gmail account with read-only access.", false, "CONNECT_GMAIL");
@@ -289,7 +356,7 @@ const drop = $("resume-drop");
 drop.addEventListener("drop", (event) => { const file = event.dataTransfer.files?.[0]; if (file) { const transfer = new DataTransfer(); transfer.items.add(file); $("resume-input").files = transfer.files; $("resume-input").dispatchEvent(new Event("change")); } });
 
 $("rank-button").addEventListener("click", () => {
-  if (!resumeText) return alert("Upload a text-based PDF resume first.");
+  if (!resumeText && !previewMode) return alert("Upload a text-based PDF resume first.");
   const prompt = `Find and rank at least five currently open ${$("direction").value} internships in ${$("location").value}. My graduation date is ${$("graduation").value} and my availability is ${$("availability").value}. Verify official job descriptions, apply hard eligibility gates, show the score breakdown, and rank by priority. Do not scan email.`;
   sendPrompt(prompt, true, "DISCOVER_AND_RANK");
 });
