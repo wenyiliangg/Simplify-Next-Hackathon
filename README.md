@@ -17,7 +17,9 @@ sequence.
 
 For the interactive prototype, open `http://localhost:5173/?preview=1`. It skips
 authentication and returns representative sample results, with a persistent
-prototype/sample-data label in the header.
+prototype/sample-data label in the header. The Excel action downloads a real
+`.xlsx` workbook containing Summary, Applications, Today's Changes, and Needs
+Review worksheets.
 
 ## Production implementation
 
