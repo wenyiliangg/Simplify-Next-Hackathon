@@ -35,6 +35,11 @@ Open `http://localhost:5173`. Authentication and chat require deployed values in
 
 ## Production deployment
 
+The current manual Amplify deployment is available at
+`https://production.d7ti2jcdjuy09.amplifyapp.com`. Authentication remains
+blocked by a pending Cognito callback/CORS update after the sandbox AWS role was
+revoked; see `docs/aws-access-recovery.md` for the exact recovery steps.
+
 1. Package `backend/api/lambda_function.py` with the versions in `backend/api/requirements.txt` and upload the ZIP to a private S3 deployment bucket.
 2. Deploy `infrastructure/web-app.yaml` in `us-east-1` with that S3 bucket/key.
 3. Copy the stack outputs (`ApiUrl`, `CognitoDomain`, and `UserPoolClientId`) into `frontend/config.js`.
@@ -43,6 +48,11 @@ Open `http://localhost:5173`. Authentication and chat require deployed values in
 6. Publish the Google OAuth application and complete verification before admitting non-test Gmail users.
 
 See [production architecture](docs/production-architecture.md) for user isolation and formal Gmail/Outlook onboarding.
+
+Do not onboard additional email users yet. The deployed Gateway email target is
+still configured for the owner's `demo-user`; Harness `runtimeUserId` is not
+automatically present in the Lambda target context. The recovery checklist
+records the required identity fix and two-user isolation test.
 
 The HTTP API is asynchronous: `POST /chat` returns a request ID immediately and
 the browser polls `GET /requests/{requestId}`. This is required because verified

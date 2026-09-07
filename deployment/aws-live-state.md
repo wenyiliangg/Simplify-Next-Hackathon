@@ -43,6 +43,40 @@ and open status are verified.
 - Request table: `SimplifyNextRequests` with one-day TTL
 - API pattern: authenticated asynchronous job submission and polling
 
+## Amplify frontend
+
+- Amplify app: `internship-compass` (`d7ti2jcdjuy09`)
+- Branch: `production`
+- Live URL: `https://production.d7ti2jcdjuy09.amplifyapp.com`
+- Static deployment: verified loading successfully with no browser console errors
+
+The live page is deployed, but authentication is **not yet usable**. The stack
+still contains the localhost Cognito callback/logout URL and localhost API CORS
+origin, so Cognito currently returns `redirect_mismatch`. The prepared stack
+update must set:
+
+- `FrontendCallbackUrl=https://production.d7ti2jcdjuy09.amplifyapp.com/`
+- `FrontendLogoutUrl=https://production.d7ti2jcdjuy09.amplifyapp.com/`
+- `FrontendOrigin=https://production.d7ti2jcdjuy09.amplifyapp.com`
+
+That final update could not be submitted because the Innovation Sandbox SSO
+assignment for role `hack2026_IsbUsersPS` was revoked while the CloudFormation
+review page was open. The access portal then showed zero AWS accounts. Restore
+the lease/role assignment before updating the stack and running the authenticated
+end-to-end test.
+
+## Production identity gate
+
+The deployed email Gateway is still a single-user demo. AWS documents the
+Lambda-target client context as Gateway/tool metadata; it does not include the
+Harness `runtimeUserId`. Therefore passing a Cognito-derived `runtimeUserId` to
+`invoke_harness` does **not**, by itself, securely partition the downstream
+email Lambda. Keep `ALLOW_DEMO_USER_ID=true` only for the owner's demo account.
+Before adding public users, put email operations behind a trusted user-bound
+API/proxy (or an authenticated Gateway flow that injects a verified subject),
+remove `demo_user_id` from the public tool schema, and set
+`ALLOW_DEMO_USER_ID=false`.
+
 The Orchestrator model and tool bindings are recorded in `agentcore/orchestrator.yaml`; its exact system prompt is in `agentcore/system-prompt.md`.
 
 ## Source layout
