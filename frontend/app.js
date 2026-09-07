@@ -34,7 +34,7 @@ function token() {
 
 function updateAuthUi() {
   if (previewMode) {
-    $("auth-status").textContent = "Alex Chen · Preview session";
+    $("auth-status").textContent = "Signed in";
     $("login-button").classList.add("hidden");
     $("logout-button").classList.add("hidden");
     $("signup-button").classList.remove("hidden");
