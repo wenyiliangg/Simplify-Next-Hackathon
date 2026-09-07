@@ -188,7 +188,12 @@ function addMessage(kind, text, actionUrl = null) {
     link.href = actionUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.textContent = actionUrl.includes("accounts.google.com") ? "Authorize Gmail" : "Open download";
+    if (actionUrl.startsWith("blob:") || actionUrl.endsWith(".xlsx")) {
+      link.textContent = "Download Excel";
+      link.download = "internship-application-tracker.xlsx";
+    } else {
+      link.textContent = actionUrl.includes("accounts.google.com") ? "Authorize Gmail" : "Open download";
+    }
     wrapper.append(link);
   }
   $("conversation").append(wrapper);
@@ -275,11 +280,13 @@ async function sendPrompt(message, includeResume = false, task = "AUTO") {
   document.querySelectorAll("button").forEach((b) => b.disabled = true);
   try {
     if (previewMode) {
-      await new Promise((resolve) => setTimeout(resolve, 650));
+      if (task !== "EXPORT_DAILY") await new Promise((resolve) => setTimeout(resolve, 650));
       const preview = previewResponse(task === "AUTO" ? "DISCOVER_AND_RANK" : task);
+      const downloadUrl = task === "EXPORT_DAILY" ? "assets/internship-application-tracker.xlsx" : null;
       typing.remove();
-      addMessage("assistant", preview.message);
+      const responseMessage = addMessage("assistant", preview.message, downloadUrl);
       renderResult(preview.result);
+      if (downloadUrl) responseMessage.querySelector("a").click();
       return;
     }
     const response = await fetch(`${config.apiUrl}/chat`, {
