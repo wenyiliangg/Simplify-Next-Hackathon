@@ -68,6 +68,7 @@ function openOnboarding() {
     $("account-step-number").classList.add("complete");
   }
   $("gmail-onboarding-step").classList.toggle("disabled", !accountReady);
+  $("modal-connect-gmail").disabled = !accountReady;
   $("modal-connect-gmail").textContent = "Continue to Gmail";
   $("onboarding-dialog").showModal();
 }
