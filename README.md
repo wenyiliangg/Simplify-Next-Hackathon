@@ -2,7 +2,7 @@
 
 An English-language internship discovery, fit-ranking, and application-tracking product built on Amazon Bedrock AgentCore.
 
-## Fastest demo (no AWS or Gmail required)
+## Run the frontend locally
 
 ```bash
 git clone https://github.com/wenyiliangg/Simplify-Next-Hackathon.git
@@ -10,9 +10,10 @@ cd Simplify-Next-Hackathon/frontend
 python3 -m http.server 5173
 ```
 
-Open `http://localhost:5173/?demo=1`. See
-[`docs/demo-script.md`](docs/demo-script.md) for the two-minute presentation
-script. Offline mode is visibly labeled and never contacts Gmail or AWS.
+Open `http://localhost:5173`. The interface is production-only: sign-up,
+Gmail connection, job discovery, ranking, and Excel export require the deployed
+AWS backend. See [`docs/demo-script.md`](docs/demo-script.md) for the presentation
+sequence.
 
 ## Production implementation
 
@@ -23,8 +24,8 @@ script. Offline mode is visibly labeled and never contacts Gmail or AWS.
 - The Fit Harness is configured for the US cross-region Claude Sonnet 4.5
   inference profile in `us-east-1`.
 - The previous AWS deployment is currently inaccessible because its Innovation
-  Sandbox lease reached the hackathon budget threshold. This does not affect
-  offline demo mode or the source in this repository.
+  Sandbox lease reached the hackathon budget threshold. The source remains
+  complete, but live agent and Gmail actions require a restored deployment.
 
 ## Repository map
 
@@ -47,13 +48,10 @@ cd frontend
 python3 -m http.server 5173
 ```
 
-Open `http://localhost:5173`. Authentication and chat require deployed values in `frontend/config.js`; the page and PDF parser can still be previewed before that.
-
-For a presentation that must not call AWS or Gmail, open
-`http://localhost:5173/?demo=1` or click **Preview demo**. The page clearly marks
-all displayed identities, messages, jobs, and scores as sample data and provides
-a clickable walkthrough of Gmail connection, synchronization, pipeline, Excel,
-and fit-ranking results.
+Open `http://localhost:5173`. The page and local PDF parser can be previewed,
+but authentication and agent actions require working deployed values in
+`frontend/config.js`. The frontend does not fabricate results when the backend
+is unavailable.
 
 ## Production deployment
 

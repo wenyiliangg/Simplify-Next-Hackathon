@@ -1,13 +1,11 @@
 const config = window.APP_CONFIG || {};
 const $ = (id) => document.getElementById(id);
 const configured = config.apiUrl && !config.apiUrl.includes("YOUR_") && config.cognitoClientId && !config.cognitoClientId.includes("YOUR_");
-const demoMode = new URLSearchParams(location.search).get("demo") === "1";
 let resumeText = "";
 let conversationId = localStorage.getItem("conversation_id") || crypto.randomUUID();
 localStorage.setItem("conversation_id", conversationId);
 
-if (!configured && !demoMode) $("setup-warning").classList.remove("hidden");
-if (demoMode) $("demo-warning").classList.remove("hidden");
+if (!configured) $("setup-warning").classList.remove("hidden");
 
 function base64Url(bytes) {
   return btoa(String.fromCharCode(...new Uint8Array(bytes)))
@@ -25,7 +23,6 @@ function randomVerifier() {
 }
 
 function token() {
-  if (demoMode) return "offline-demo-token";
   const value = sessionStorage.getItem("id_token");
   const expires = Number(sessionStorage.getItem("token_expires") || 0);
   if (!value || Date.now() >= expires) return null;
@@ -33,62 +30,14 @@ function token() {
 }
 
 function updateAuthUi() {
-  if (demoMode) {
-    $("auth-status").textContent = "Offline demo";
-    $("login-button").classList.add("hidden");
-    $("logout-button").classList.add("hidden");
-    $("demo-button").textContent = "Exit demo";
-    return;
-  }
   const signedIn = Boolean(token());
   $("auth-status").textContent = signedIn ? "Signed in securely" : "Not signed in";
   $("login-button").classList.toggle("hidden", signedIn);
+  $("signup-button").classList.toggle("hidden", signedIn);
   $("logout-button").classList.toggle("hidden", !signedIn);
 }
 
-const demoStatuses = [
-  {company: "Jane Street", role: "Software Engineer Intern", status: "INTERVIEW", status_at: "2026-09-06T09:30:00Z", confidence: "HIGH"},
-  {company: "Stripe", role: "Data Science Intern", status: "ASSESSMENT", status_at: "2026-09-05T04:10:00Z", confidence: "HIGH"},
-  {company: "Canva", role: "Backend Engineering Intern", status: "APPLIED", status_at: "2026-09-03T12:00:00Z", confidence: "HIGH"},
-  {company: "Airbnb", role: "Software Engineer Intern", status: "REJECTED", status_at: "2026-09-02T08:15:00Z", confidence: "HIGH"},
-  {company: "Datadog", role: "Product Analytics Intern", status: "OFFER", status_at: "2026-09-01T06:45:00Z", confidence: "HIGH"}
-];
-
-const demoJobs = [
-  {company: "Cloudflare", role: "Software Engineer Intern", location: "Singapore · Skills 28/30 · Experience 22/25 · Projects 14/15", priority_score: 91, eligibility: "ELIGIBLE"},
-  {company: "TikTok", role: "Backend Software Engineer Intern", location: "Singapore · Skills 26/30 · Experience 21/25 · Projects 13/15", priority_score: 87, eligibility: "ELIGIBLE"},
-  {company: "Grab", role: "Data Platform Intern", location: "Singapore · Skills 25/30 · Experience 20/25 · Projects 13/15", priority_score: 84, eligibility: "ELIGIBLE"},
-  {company: "Wise", role: "Software Engineering Intern", location: "Singapore · Skills 24/30 · Experience 20/25 · Projects 12/15", priority_score: 81, eligibility: "ELIGIBLE"},
-  {company: "Shopee", role: "Machine Learning Intern", location: "Singapore · Skills 23/30 · Experience 18/25 · Projects 13/15", priority_score: 78, eligibility: "ELIGIBLE"}
-];
-
-function demoResponse(task) {
-  const base = {
-    email_tracker: {connected: true, sync_status: "NOT_REQUESTED", messages_examined: 0, relevant_messages: 0, application_statuses: []},
-    fit_agent: {candidate_ready: false, ranked_jobs: [], needs_verification: [], ineligible_jobs: []},
-    excel_report: {generated: false}
-  };
-  if (task === "CONNECT_GMAIL") {
-    return {message: "Demo: Gmail authorization succeeded with read-only access. In production, Google shows its consent screen here.", result: base};
-  }
-  if (task === "EMAIL_SYNC") {
-    base.email_tracker = {connected: true, sync_status: "SUCCESS", messages_examined: 20, relevant_messages: 5, application_statuses: demoStatuses};
-    return {message: "Demo: scanned 20 Gmail messages, identified 5 application updates, and refreshed the private pipeline.", result: base};
-  }
-  if (task === "EMAIL_STATUS") {
-    base.email_tracker.application_statuses = demoStatuses;
-    return {message: "Demo: loaded 5 stored application statuses without accessing Gmail again.", result: base};
-  }
-  if (task === "EXPORT_DAILY") {
-    base.email_tracker.application_statuses = demoStatuses;
-    base.excel_report = {generated: true, s3_uri: "s3://private-user-report/demo.xlsx"};
-    return {message: "Demo: a private Excel report would be generated here with summary, applications, today's changes, and review sheets.", result: base};
-  }
-  base.fit_agent = {candidate_ready: true, ranked_jobs: demoJobs, needs_verification: [], ineligible_jobs: []};
-  return {message: "Demo: verified official career pages, applied hard eligibility gates, and ranked five sample internships using the candidate profile.", result: base};
-}
-
-async function login() {
+async function beginCognito(path = "/oauth2/authorize") {
   if (!configured) return alert("Configure the deployed API and Cognito values first.");
   const verifier = randomVerifier();
   sessionStorage.setItem("pkce_verifier", verifier);
@@ -101,7 +50,26 @@ async function login() {
     code_challenge_method: "S256",
     code_challenge: challenge
   });
-  location.assign(`${config.cognitoDomain}/oauth2/authorize?${params}`);
+  location.assign(`${config.cognitoDomain}${path}?${params}`);
+}
+
+async function login() { return beginCognito("/oauth2/authorize"); }
+async function signup() { return beginCognito("/signup"); }
+
+function openOnboarding() {
+  const accountReady = Boolean(token());
+  $("account-help").textContent = accountReady
+    ? "Your account is signed in securely."
+    : "Account creation is securely handled by Amazon Cognito.";
+  $("create-account-button").textContent = accountReady ? "Account ready" : "Create secure account";
+  $("create-account-button").disabled = accountReady;
+  if (accountReady) {
+    $("account-step-number").textContent = "✓";
+    $("account-step-number").classList.add("complete");
+  }
+  $("gmail-onboarding-step").classList.toggle("disabled", !accountReady);
+  $("modal-connect-gmail").textContent = "Continue to Gmail";
+  $("onboarding-dialog").showModal();
 }
 
 async function finishLogin() {
@@ -253,14 +221,6 @@ async function sendPrompt(message, includeResume = false, task = "AUTO") {
   $("request-status").textContent = "The orchestrator is working. Verified job searches can take up to a few minutes.";
   document.querySelectorAll("button").forEach((b) => b.disabled = true);
   try {
-    if (demoMode) {
-      await new Promise((resolve) => setTimeout(resolve, 650));
-      const demo = demoResponse(task === "AUTO" ? "DISCOVER_AND_RANK" : task);
-      typing.remove();
-      addMessage("assistant", demo.message);
-      renderResult(demo.result);
-      return;
-    }
     const response = await fetch(`${config.apiUrl}/chat`, {
       method: "POST",
       headers: {"content-type": "application/json", authorization: `Bearer ${token()}`},
@@ -299,11 +259,16 @@ async function sendPrompt(message, includeResume = false, task = "AUTO") {
 }
 
 $("login-button").addEventListener("click", login);
+$("signup-button").addEventListener("click", openOnboarding);
 $("logout-button").addEventListener("click", logout);
-$("demo-button").addEventListener("click", () => {
-  const url = new URL(location.href);
-  if (demoMode) url.searchParams.delete("demo"); else url.searchParams.set("demo", "1");
-  location.assign(url);
+$("onboarding-close").addEventListener("click", () => $("onboarding-dialog").close());
+$("onboarding-dialog").addEventListener("click", (event) => {
+  if (event.target === $("onboarding-dialog")) $("onboarding-dialog").close();
+});
+$("create-account-button").addEventListener("click", signup);
+$("modal-connect-gmail").addEventListener("click", () => {
+  $("onboarding-dialog").close();
+  sendPrompt("Connect my Gmail account with read-only access.", false, "CONNECT_GMAIL");
 });
 $("resume-input").addEventListener("change", async (event) => {
   const file = event.target.files?.[0]; if (!file) return;
@@ -323,11 +288,14 @@ const drop = $("resume-drop");
 drop.addEventListener("drop", (event) => { const file = event.dataTransfer.files?.[0]; if (file) { const transfer = new DataTransfer(); transfer.items.add(file); $("resume-input").files = transfer.files; $("resume-input").dispatchEvent(new Event("change")); } });
 
 $("rank-button").addEventListener("click", () => {
-  if (!resumeText && !demoMode) return alert("Upload a text-based PDF resume first.");
+  if (!resumeText) return alert("Upload a text-based PDF resume first.");
   const prompt = `Find and rank at least five currently open ${$("direction").value} internships in ${$("location").value}. My graduation date is ${$("graduation").value} and my availability is ${$("availability").value}. Verify official job descriptions, apply hard eligibility gates, show the score breakdown, and rank by priority. Do not scan email.`;
   sendPrompt(prompt, true, "DISCOVER_AND_RANK");
 });
-document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => sendPrompt(button.dataset.prompt, false, button.dataset.task || "AUTO")));
+document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => {
+  if (button.dataset.task === "CONNECT_GMAIL") { openOnboarding(); return; }
+  sendPrompt(button.dataset.prompt, false, button.dataset.task || "AUTO");
+}));
 $("chat-form").addEventListener("submit", (event) => { event.preventDefault(); const value = $("chat-input").value.trim(); if (value) { $("chat-input").value = ""; sendPrompt(value, Boolean(resumeText)); } });
 
 try { await finishLogin(); } catch (error) { addMessage("assistant", error.message); }
