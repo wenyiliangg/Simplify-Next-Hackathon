@@ -80,7 +80,9 @@ STATUS_SORT_ORDER = {
     "WITHDRAWN": 8,
 }
 
-if boto3:
+# Do not construct live AWS clients merely by importing this module in tests or
+# local tooling. AWS Lambda always provides AWS_EXECUTION_ENV.
+if boto3 and os.getenv("AWS_EXECUTION_ENV"):
     _dynamodb = boto3.resource("dynamodb")
     _table = _dynamodb.Table(TABLE_NAME)
     _s3 = boto3.client("s3")

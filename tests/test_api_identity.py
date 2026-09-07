@@ -36,7 +36,8 @@ fake_lambda = FakeLambda()
 fake_boto3 = types.ModuleType("boto3")
 fake_boto3.client = lambda name, **_kwargs: fake_lambda if name == "lambda" else object()
 fake_boto3.resource = lambda _name, **_kwargs: types.SimpleNamespace(Table=lambda _table: FakeTable())
-sys.modules.setdefault("boto3", fake_boto3)
+original_boto3 = sys.modules.get("boto3")
+sys.modules["boto3"] = fake_boto3
 os.environ.update(
     {
         "HARNESS_ARN": "arn:aws:bedrock-agentcore:us-east-1:123456789012:harness/test",
@@ -50,6 +51,10 @@ spec = importlib.util.spec_from_file_location(
 )
 api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api)
+if original_boto3 is None:
+    sys.modules.pop("boto3", None)
+else:
+    sys.modules["boto3"] = original_boto3
 
 
 class ApiIdentityTests(unittest.TestCase):
