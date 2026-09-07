@@ -7,9 +7,13 @@ cd frontend
 python3 -m http.server 5173
 ```
 
-Open `http://localhost:5173`. Live sign-up, Gmail, ranking, and export actions
-require the deployed AWS backend. If the backend is unavailable, demonstrate
-the interface and architecture without claiming that live results were created.
+For a backend-free interactive walkthrough, open
+`http://localhost:5173/?preview=1`. The header identifies it as a prototype with
+sample data. The preview skips authentication while keeping the Sign up window
+available and makes every workflow button interactive.
+
+Open `http://localhost:5173` for the production-only path. Live sign-up, Gmail,
+ranking, and export actions there require the deployed AWS backend.
 
 ## Suggested two-minute walkthrough
 
