@@ -2,14 +2,29 @@
 
 An English-language internship discovery, fit-ranking, and application-tracking product built on Amazon Bedrock AgentCore.
 
-## What works in AWS
+## Fastest demo (no AWS or Gmail required)
+
+```bash
+git clone https://github.com/wenyiliangg/Simplify-Next-Hackathon.git
+cd Simplify-Next-Hackathon/frontend
+python3 -m http.server 5173
+```
+
+Open `http://localhost:5173/?demo=1`. See
+[`docs/demo-script.md`](docs/demo-script.md) for the two-minute presentation
+script. Offline mode is visibly labeled and never contacts Gmail or AWS.
+
+## Production implementation
 
 - The authenticated API routes requests between the fit Harness and the
   user-bound Gmail workflow.
 - Job discovery searches official company career sources, verifies job descriptions, applies hard eligibility gates, and produces transparent rankings.
 - Gmail tracking uses read-only OAuth, classifies application updates, stores compact status evidence in DynamoDB, and exports Excel reports to private S3.
-- The Orchestrator runs on the US cross-region Claude Sonnet 4.5 inference profile.
-- Its `DEFAULT` endpoint is ready in `us-east-1`.
+- The Fit Harness is configured for the US cross-region Claude Sonnet 4.5
+  inference profile in `us-east-1`.
+- The previous AWS deployment is currently inaccessible because its Innovation
+  Sandbox lease reached the hackathon budget threshold. This does not affect
+  offline demo mode or the source in this repository.
 
 ## Repository map
 
