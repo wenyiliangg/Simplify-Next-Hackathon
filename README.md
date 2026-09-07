@@ -2,19 +2,35 @@
 
 An English-language internship discovery, fit-ranking, and application-tracking product built on Amazon Bedrock AgentCore.
 
-## What works in AWS
+## Fastest demo (no AWS or Gmail required)
 
-- `internship_orchestrator_v1` routes requests between two specialist toolsets.
+```bash
+git clone https://github.com/wenyiliangg/Simplify-Next-Hackathon.git
+cd Simplify-Next-Hackathon/frontend
+python3 -m http.server 5173
+```
+
+Open `http://localhost:5173/?demo=1`. See
+[`docs/demo-script.md`](docs/demo-script.md) for the two-minute presentation
+script. Offline mode is visibly labeled and never contacts Gmail or AWS.
+
+## Production implementation
+
+- The authenticated API routes requests between the fit Harness and the
+  user-bound Gmail workflow.
 - Job discovery searches official company career sources, verifies job descriptions, applies hard eligibility gates, and produces transparent rankings.
 - Gmail tracking uses read-only OAuth, classifies application updates, stores compact status evidence in DynamoDB, and exports Excel reports to private S3.
-- The Orchestrator runs on the US cross-region Claude Sonnet 4.5 inference profile.
-- Its `DEFAULT` endpoint is ready in `us-east-1`.
+- The Fit Harness is configured for the US cross-region Claude Sonnet 4.5
+  inference profile in `us-east-1`.
+- The previous AWS deployment is currently inaccessible because its Innovation
+  Sandbox lease reached the hackathon budget threshold. This does not affect
+  offline demo mode or the source in this repository.
 
 ## Repository map
 
 ```text
 frontend/                     Static responsive web app and local PDF parsing
-backend/api/                  Cognito-authenticated API → AgentCore Harness
+backend/api/                  Cognito-authenticated orchestrator API
 backend/email_tools/          Gmail/state/Excel Lambda used by AgentCore Gateway
 infrastructure/web-app.yaml   Cognito, HTTP API, and web API Lambda
 infrastructure/email-tools.yaml
@@ -33,6 +49,12 @@ python3 -m http.server 5173
 
 Open `http://localhost:5173`. Authentication and chat require deployed values in `frontend/config.js`; the page and PDF parser can still be previewed before that.
 
+For a presentation that must not call AWS or Gmail, open
+`http://localhost:5173/?demo=1` or click **Preview demo**. The page clearly marks
+all displayed identities, messages, jobs, and scores as sample data and provides
+a clickable walkthrough of Gmail connection, synchronization, pipeline, Excel,
+and fit-ranking results.
+
 ## Production deployment
 
 The current manual Amplify deployment is available at
@@ -49,14 +71,19 @@ revoked; see `docs/aws-access-recovery.md` for the exact recovery steps.
 
 See [production architecture](docs/production-architecture.md) for user isolation and formal Gmail/Outlook onboarding.
 
-Do not onboard additional email users yet. The deployed Gateway email target is
-still configured for the owner's `demo-user`; Harness `runtimeUserId` is not
-automatically present in the Lambda target context. The recovery checklist
-records the required identity fix and two-user isolation test.
+Do not onboard additional email users until the updated API and email Lambda
+packages are deployed. The source now binds every Gmail operation to the
+verified Cognito user in trusted Lambda ClientContext, disables `demo-user`, and
+stores new refresh tokens per user. The recovery checklist records the required
+deployment and two-user isolation test.
 
 The HTTP API is asynchronous: `POST /chat` returns a request ID immediately and
 the browser polls `GET /requests/{requestId}`. This is required because verified
 multi-job discovery can run longer than API Gateway's synchronous request window.
+
+Email classification uses the lower-cost Claude Haiku 4.5 US inference profile;
+the more capable Sonnet 4.5 Harness is reserved for job discovery and fit
+ranking.
 
 ## Safety and privacy
 
@@ -69,7 +96,7 @@ multi-job discovery can run longer than API Gateway's synchronous request window
 ## Tests
 
 ```bash
-python3 -m pytest tests/test_email_tools.py
+python3 -m unittest -v tests.test_email_tools tests.test_api_identity
 ```
 
 The deployed resource names and verified repairs are recorded in `deployment/aws-live-state.md`.

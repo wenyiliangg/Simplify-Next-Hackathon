@@ -4,9 +4,15 @@ The application is not fully production-ready until every item below passes.
 
 ## 1. Restore the sandbox role
 
-Restore the Innovation Sandbox lease/assignment for account `591255906109` and
-role `hack2026_IsbUsersPS`. Confirm that the AWS access portal lists the account
-and that the console opens in `us-east-1`.
+The account was frozen after exceeding the lease budget. Ask a Sandbox Manager
+or Administrator to increase the maximum budget for the existing lease first,
+then choose **Unfreeze**. Simply unfreezing without raising the threshold will
+cause the monitor to freeze it again. If the lease is already terminated, it
+cannot be extended; request a new lease instead.
+
+Restore the lease/assignment for account `591255906109` and role
+`hack2026_IsbUsersPS`. Confirm that the AWS access portal lists the account and
+that the console opens in `us-east-1`.
 
 ## 2. Finish the web stack update
 
@@ -29,23 +35,37 @@ only official, reachable, current/future job-detail pages. A past deadline,
 closed role, generic careers/search page, or unverifiable opening must never
 appear in `ranked_jobs`.
 
-## 4. Keep email single-user until identity is fixed
+## 4. Deploy and verify multi-user Gmail isolation
 
-Do not onboard additional Gmail users to the currently deployed email Gateway.
-Its Lambda target receives Gateway/tool metadata, not the Harness
-`runtimeUserId`, and currently falls back to `demo-user`. Before public use,
-route email tool calls through a trusted component that derives the user from a
-verified Cognito JWT and passes it to the Lambda invocation context, then disable
-the demo fallback and remove `demo_user_id` from every public schema.
+Deploy the updated web API and email-tools packages from this repository. The
+web API derives the user from the verified Cognito JWT, invokes the email Lambda
+directly with that identity in trusted Lambda ClientContext, and never accepts a
+mailbox user ID in public JSON. The updated email Lambda disables the demo
+fallback, and the public schema no longer contains `demo_user_id`.
 
-After that change, test with two separate Cognito users and two separate Gmail
+New Gmail refresh tokens are written to each user's encrypted DynamoDB
+partition instead of a shared JSON token map. The existing owner's old token is
+read only as a migration fallback.
+
+After deployment, test with two separate Cognito users and two separate Gmail
 test accounts. Each user must see only their own connection, messages,
 application records, and Excel report.
 
 ## 5. Provider launch gates
 
 - Gmail: move the Google OAuth consent app from Testing to Production and
-  complete verification for `gmail.readonly` before admitting general users.
-- Outlook: deploy a multi-tenant Microsoft Entra application using delegated
-  Microsoft Graph `Mail.Read`; Outlook is not implemented in the live stack yet.
+  complete verification for the restricted `gmail.readonly` scope before
+  admitting general users. Testing-mode Gmail refresh tokens expire after seven
+  days; server-side handling of restricted data may require Google's approved
+  third-party security assessment.
 - Never put OAuth secrets, tokens, mailbox contents, or resume text in GitHub.
+
+## 6. Control cost after unfreezing
+
+- Keep Sonnet 4.5 for job discovery/ranking, but use Haiku 4.5 for email
+  classification as configured in `web-app.yaml`.
+- Do not repeatedly run broad job discovery during development; use stored
+  fixtures for UI work and one bounded live run for the demo.
+- Keep Gmail scans capped at 30 messages per synchronization.
+- Check Cost Explorer by service before increasing the lease budget, and set an
+  alert below the new freeze threshold.

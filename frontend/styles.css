@@ -59,6 +59,7 @@ body {
 .trust-row span::before { content: "✓"; margin-right: 7px; color: var(--green); font-weight: 800; }
 
 .notice { padding: 14px 18px; margin-bottom: 18px; border: 1px solid #e9c875; border-radius: 14px; background: #fff8df; color: #735516; }
+.demo-notice { border-color: #a8cbb5; background: #edf8f0; color: var(--green-dark); }
 .workspace { display: grid; grid-template-columns: .92fr 1.28fr; gap: 20px; align-items: stretch; }
 .card { border: 1px solid rgba(198, 213, 203, .85); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); backdrop-filter: blur(14px); }
 .profile-panel, .agent-panel { padding: 27px; }
@@ -112,6 +113,11 @@ input:focus, select:focus, textarea:focus { border-color: #7da48b; box-shadow: 0
 .summary-card { padding: 16px; border-radius: 15px; background: white; border: 1px solid var(--line); }
 .summary-card strong { display: block; font: 800 24px "Manrope"; }
 .summary-card span { color: var(--muted); font-size: 11px; }
+.pipeline { display: grid; gap: 8px; margin-bottom: 18px; }
+.pipeline-row { display: grid; grid-template-columns: 1.1fr 1.4fr .7fr .8fr; gap: 14px; align-items: center; padding: 13px 15px; border: 1px solid var(--line); border-radius: 14px; background: white; font-size: 12px; }
+.pipeline-row strong { font-size: 13px; }
+.pipeline-role, .pipeline-date { color: var(--muted); }
+.pipeline-row .status-pill { justify-self: start; }
 .rankings { display: grid; gap: 10px; }
 .ranking-card { display: grid; grid-template-columns: 52px 1.4fr .8fr .7fr; gap: 16px; align-items: center; padding: 16px; border-radius: 16px; background: white; border: 1px solid var(--line); }
 .rank { font: 800 25px "Manrope"; color: #a7b4ac; }
@@ -128,6 +134,7 @@ footer { width: min(1180px, calc(100% - 40px)); margin: 0 auto 35px; display: fl
   .trust-row { gap: 10px; flex-wrap: wrap; }
   .summary-cards { grid-template-columns: 1fr 1fr; }
   .ranking-card { grid-template-columns: 40px 1fr; }
+  .pipeline-row { grid-template-columns: 1fr 1fr; }
   .score, .status-pill { justify-self: start; }
 }
 @media (max-width: 520px) {

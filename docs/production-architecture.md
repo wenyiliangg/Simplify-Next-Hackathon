@@ -7,11 +7,15 @@
 3. API Gateway validates the Cognito JWT before invoking `SimplifyNextOrchestratorApi`.
 4. The API Lambda derives the user identity only from the verified JWT `sub`; request JSON cannot choose a user ID.
 5. `POST /chat` creates a short-lived job record and asynchronously invokes the worker path of the same Lambda, so long career-site verification does not hit API Gateway's synchronous timeout.
-6. The worker calls the AgentCore Harness `DEFAULT` endpoint with both a server-derived `runtimeUserId` and a user-scoped `runtimeSessionId`; the frontend polls `GET /requests/{requestId}`.
-7. AgentCore receives the user ID for Harness runtime/session isolation. This
-   does not automatically propagate that identity to a Lambda target behind an
-   AgentCore Gateway; downstream email identity needs a separate trusted
-   propagation mechanism.
+6. For fit/discovery, the worker calls the AgentCore Harness `DEFAULT` endpoint
+   with a server-derived `runtimeUserId` and user-scoped `runtimeSessionId`.
+7. For Gmail tasks, the API acts as the trusted orchestrator: it invokes
+   `InternshipEmailTools` directly and places the verified Cognito `sub` only in
+   Lambda ClientContext. Public request JSON and model-generated tool arguments
+   cannot choose a mailbox identity.
+8. Gmail scanning remains read-only. Claude Haiku 4.5 classifies only compact
+   message excerpts, after which the API writes normalized events through the
+   same user-bound Lambda path. The frontend polls `GET /requests/{requestId}`.
 
 The frontend extracts text from a selected PDF locally with PDF.js. The file itself is not uploaded or retained. The extracted text is included only in the private asynchronous Lambda invocation for a fit request and is capped at 60,000 characters; it is not written to the request table.
 
@@ -25,22 +29,23 @@ Users do **not** create AWS resources or enter AWS credentials. AWS is configure
 4. grants the app read-only Gmail access; and
 5. can revoke access later from their Google Account.
 
-The current Google OAuth consent screen is in **Testing** status and the owner's Gmail account is a test user. In that state, only explicitly added Google test users can authorize. Before public launch, first replace the deployed `demo-user` fallback with verified user propagation, then change the Google OAuth app to Production and complete Google's verification for the restricted `gmail.readonly` scope. The OAuth client ID and redirect URI are app-level configuration; users do not configure them individually.
+The current Google OAuth consent screen is in **Testing** status and the owner's Gmail account is a test user. In that state, only explicitly added Google test users can authorize, and external-testing refresh tokens using Gmail scopes expire after seven days. The repository now contains verified user propagation and disables the `demo-user` fallback, but those packages still need to be deployed after AWS access is restored. Then change the Google OAuth app to Production and complete Google's verification for the restricted `gmail.readonly` scope. Because restricted Gmail data is transmitted through the AWS backend, Google may also require an approved third-party security assessment. The OAuth client ID and redirect URI are app-level configuration; users do not configure them individually.
 
-Never commit the Google client secret or any refresh/access token. They remain in AWS Secrets Manager. For a larger launch, replace the single JSON secret map with one encrypted secret per user or a KMS-encrypted token table to avoid whole-map write contention.
-
-## Outlook onboarding
-
-The deployed Gateway currently implements Gmail, not Outlook. To add Outlook for formal users, register one multi-tenant Microsoft Entra application, request delegated Microsoft Graph `Mail.Read`, add an AWS callback URL, and store each user's refresh token under the same Cognito user partition. Users then consent individually; they still do not configure AWS.
+Never commit the Google client secret or any refresh/access token. The app-level
+Google client secret and OAuth state signing secret remain in AWS Secrets
+Manager. New refresh tokens are stored in the encrypted DynamoDB table under
+that Cognito user's `USER#<sub>/OAUTH#gmail` partition. A compatibility read of
+the old secret map is retained only so the owner's existing test connection is
+not lost during migration; new callbacks never add tokens to that shared map.
 
 ## Security requirements before public launch
 
-- Set `ALLOW_DEMO_USER_ID=false` on the email-tools Lambda after confirming `runtimeUserId` propagation through the production API.
-- Remove `demo_user_id` from public tool schemas.
+- Deploy the repository versions that set `ALLOW_DEMO_USER_ID=false` and remove
+  `demo_user_id` from public tool schemas.
 - Do not assume `invoke_harness(runtimeUserId=...)` reaches a Gateway Lambda
   target. AWS's documented Lambda target context contains Gateway/tool metadata,
-  not that field. Use a trusted API/proxy or authenticated identity propagation
-  and verify isolation with two users before launch.
+  not that field. This project therefore uses the trusted API Lambda path for
+  Gmail and must verify isolation with two users before launch.
 - Restrict API CORS to the exact Amplify origin.
 - Keep Cognito JWT verification enabled on every private route.
 - Add DynamoDB point-in-time recovery, Secrets Manager rotation/monitoring, log retention, request throttling, and deletion/export workflows.

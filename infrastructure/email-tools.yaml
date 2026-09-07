@@ -15,9 +15,6 @@ Parameters:
   ReportBucketName:
     Type: String
     Default: internship-email-reports-591255906109-us-east-1
-  DemoUserId:
-    Type: String
-    Default: demo-user
   GoogleClientId:
     Type: String
     Default: 485823270394-udpgv3e9fdjkeknsdvbqa4boflgbjih9.apps.googleusercontent.com
@@ -167,8 +164,7 @@ Resources:
         Variables:
           APPLICATION_TABLE_NAME: !Ref ApplicationTable
           REPORT_BUCKET_NAME: !Ref ReportBucket
-          ALLOW_DEMO_USER_ID: "true"
-          DEFAULT_DEMO_USER_ID: !Ref DemoUserId
+          ALLOW_DEMO_USER_ID: "false"
           DEFAULT_TIMEZONE: Asia/Singapore
           DEPLOYMENT_VERSION: !Ref DeploymentVersion
           GOOGLE_CLIENT_ID: !Ref GoogleClientId
@@ -192,42 +188,6 @@ Resources:
       LogGroupName: /aws/lambda/InternshipEmailTools
       RetentionInDays: 7
 
-  DailyReportSchedulerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: InternshipEmailDailyReportSchedulerRole
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: scheduler.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: InvokeEmailToolsDaily
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !GetAtt EmailToolsFunction.Arn
-
-  DailyReportSchedule:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      Name: internship-email-daily-report
-      Description: Generate the private daily application status workbook at 23:55 Asia/Singapore
-      FlexibleTimeWindow:
-        # Quote OFF so YAML does not coerce it to the boolean false.
-        Mode: "OFF"
-      ScheduleExpression: cron(55 23 * * ? *)
-      ScheduleExpressionTimezone: Asia/Singapore
-      State: ENABLED
-      Target:
-        Arn: !GetAtt EmailToolsFunction.Arn
-        RoleArn: !GetAtt DailyReportSchedulerRole.Arn
-        Input: !Sub '{"_tool_name":"scheduled_daily_export","demo_user_id":"${DemoUserId}","timezone":"Asia/Singapore"}'
-
 Outputs:
   ApplicationTableName:
     Value: !Ref ApplicationTable
@@ -239,7 +199,5 @@ Outputs:
     Value: !GetAtt EmailToolsFunction.Arn
   EmailToolsExecutionRoleArn:
     Value: !GetAtt EmailToolsExecutionRole.Arn
-  DailyReportScheduleName:
-    Value: !Ref DailyReportSchedule
   GoogleOAuthCallbackUrl:
     Value: !Sub https://${GoogleOAuthApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/oauth/google/callback

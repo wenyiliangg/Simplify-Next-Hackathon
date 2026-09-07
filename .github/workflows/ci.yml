@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main, codex/production-app]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest -v tests.test_email_tools tests.test_api_identity
+      - run: python -m json.tool agentcore/email-state-tools.json >/dev/null
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node --check frontend/app.js
+
